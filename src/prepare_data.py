@@ -22,7 +22,7 @@ def build_clean() -> pd.DataFrame:
     parts = []
     for split in ["train", "test"]:
         df = pd.read_csv(RAW_DIR / f"dreaddit_{split}.csv", usecols=KEEP_COLS)
-        df["orig_split"] = split  # Split A reuses the dataset's own train/test division
+        df["orig_split"] = split  # Split A i.e. Random Split reuses the dataset's own train/test division
         parts.append(df)
     df = pd.concat(parts, ignore_index=True)
 
@@ -39,6 +39,7 @@ def summarize(df: pd.DataFrame) -> None:
     print("\nby original split:")
     print(df.groupby("orig_split").agg(rows=("label", "size"), stress_rate=("label", "mean")))
     print("\nsubreddits:", sorted(df["subreddit"].unique()))
+    print(f"\ntest share: {(df['orig_split'] == 'test').mean():.3f}")  # True/False -> 1/0, so the mean = share of test rows
 
 
 def main() -> None:
