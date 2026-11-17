@@ -2,7 +2,8 @@
 
 Split A = 10 grouped random splits (seeds in splits.RANDOM_SEEDS), reported as mean +/- std.
 Also scores the dataset's original train/test split as a side note.
-Writes results/baseline_runs.csv (one row per run) and results/baseline_summary.csv.
+Writes results/baseline_runs.csv (one row per run), results/baseline_summary.csv and
+results/baseline_predictions.csv (TF-IDF + LR test predictions, one row per test row per run).
 Run from the repo root:  python src/train_baseline.py
 """
 from pathlib import Path
@@ -47,14 +48,19 @@ def all_splits(df: pd.DataFrame):
 
 def main() -> None:
     df = load_clean()
-    rows = []
+    rows, pred_parts = [], []
     for split_name, seed, train, test in all_splits(df):
         for model_name, model in make_models().items():  # fresh, untrained models for each run
             model.fit(train["text"], train["label"])
-            metrics = compute_metrics(test["label"], model.predict(test["text"]))
+            preds = model.predict(test["text"])
+            metrics = compute_metrics(test["label"], preds)
             rows.append({"model": model_name, "split": split_name, "seed": seed,
                          "n_train": len(train), "n_test": len(test), **metrics})
+            if model_name == "tfidf_logreg":  # one row per test row, for breakdowns (no text, to keep it small)
+                pred_parts.append(test[["post_id", "subreddit", "social_timestamp", "label"]]
+                                  .assign(model=model_name, split=split_name, seed=seed, pred=preds))
     runs = pd.DataFrame(rows)
+    pd.concat(pred_parts).to_csv(RESULTS / "baseline_predictions.csv", index=False)
 
     # One line per (model, split). std is blank for splits with a single run.
     summary = (runs.groupby(["model", "split"], sort=False)

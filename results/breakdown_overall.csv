@@ -1,0 +1,5 @@
+model,split,n,stress_rate,macro_f1,accuracy,recall_not_stressed,recall_stressed
+distilroberta-base,A_random,566.4,0.5435,0.8212,0.8241,0.7709,0.8712
+distilroberta-base,B_temporal,565.0,0.5575,0.84,0.8439,0.7776,0.8965
+tfidf_logreg,A_random,566.4,0.5435,0.7436,0.7524,0.6256,0.8606
+tfidf_logreg,B_temporal,565.0,0.5575,0.7531,0.7646,0.62,0.8794

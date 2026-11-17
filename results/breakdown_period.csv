@@ -1,0 +1,9 @@
+model,split,period,n,stress_rate,macro_f1,accuracy,recall_not_stressed,recall_stressed
+distilroberta-base,A_random,2017,219.6,0.5338,0.8166,0.8196,0.7492,0.887
+distilroberta-base,A_random,Jan-Aug 2018,234.4,0.5431,0.8165,0.8193,0.7761,0.8566
+distilroberta-base,A_random,Sep-Nov 2018,112.4,0.5696,0.8391,0.8441,0.8089,0.8722
+distilroberta-base,B_temporal,Sep-Nov 2018,565.0,0.5575,0.84,0.8439,0.7776,0.8965
+tfidf_logreg,A_random,2017,219.6,0.5338,0.7356,0.7443,0.6152,0.8588
+tfidf_logreg,A_random,Jan-Aug 2018,234.4,0.5431,0.7504,0.7591,0.631,0.8711
+tfidf_logreg,A_random,Sep-Nov 2018,112.4,0.5696,0.7435,0.7564,0.6435,0.8413
+tfidf_logreg,B_temporal,Sep-Nov 2018,565.0,0.5575,0.7531,0.7646,0.62,0.8794

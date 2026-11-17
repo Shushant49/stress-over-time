@@ -2,8 +2,8 @@
 
 5 seeds per split. For Split A the seed picks both the random split and the training randomness;
 for Split B the split is fixed and the seed only changes training randomness.
-Writes results/transformer_runs.csv (one row per run, appended as each run finishes)
-and results/transformer_summary.csv.
+Writes results/transformer_runs.csv (one row per run, appended as each run finishes),
+results/transformer_predictions.csv (one row per test row per run) and results/transformer_summary.csv.
 
 Run from the repo root:
   python src/train_transformer.py           # full run (GPU strongly recommended)
@@ -36,6 +36,7 @@ WEIGHT_DECAY = 0.01
 WARMUP_SHARE = 0.1  # first 10% of steps ramp the learning rate up from 0, which keeps early updates gentle
 
 RESULTS = Path(__file__).resolve().parent.parent / "results"
+PRED_COLS = ["post_id", "subreddit", "social_timestamp", "label"]
 
 
 def to_dataset(df: pd.DataFrame, tok) -> Dataset:
@@ -45,7 +46,7 @@ def to_dataset(df: pd.DataFrame, tok) -> Dataset:
                   remove_columns=["text"])
 
 
-def train_and_score(train: pd.DataFrame, test: pd.DataFrame, seed: int, smoke: bool) -> dict:
+def train_and_predict(train: pd.DataFrame, test: pd.DataFrame, seed: int, smoke: bool) -> np.ndarray:
     set_seed(seed)  # seeds Python, NumPy and PyTorch together
     tok = AutoTokenizer.from_pretrained(MODEL_NAME)
     # Loads the pre-trained body plus a NEW, randomly initialised 2-class output layer.
@@ -74,8 +75,7 @@ def train_and_score(train: pd.DataFrame, test: pd.DataFrame, seed: int, smoke: b
                           data_collator=DataCollatorWithPadding(tok))  # pads each batch to its longest post
         trainer.train()
         logits = trainer.predict(to_dataset(test, tok)).predictions
-    preds = np.argmax(logits, axis=-1)  # pick the class with the higher score
-    return compute_metrics(test["label"], preds)
+    return np.argmax(logits, axis=-1)  # pick the class with the higher score
 
 
 def all_runs(df: pd.DataFrame):
@@ -97,21 +97,25 @@ def main() -> None:
     print(f"posts longer than {MAX_LEN} tokens (will be truncated): {np.mean(np.array(lengths) > MAX_LEN):.1%}")
 
     out = RESULTS / "transformer_runs.csv"
-    if not smoke and out.exists():
-        out.unlink()  # start fresh so old and new runs never mix
-    rows = []
+    pred_out = RESULTS / "transformer_predictions.csv"
+    if not smoke:
+        for f in (out, pred_out):
+            f.unlink(missing_ok=True)  # start fresh so old and new runs never mix
     for split_name, seed, train, test in all_runs(df):
         if smoke:
             train, test = train.head(64), test.head(32)
-        metrics = train_and_score(train, test, seed, smoke)
+        preds = train_and_predict(train, test, seed, smoke)
+        metrics = compute_metrics(test["label"], preds)
         row = {"model": MODEL_NAME, "split": split_name, "seed": seed,
                "n_train": len(train), "n_test": len(test), **metrics}
-        rows.append(row)
         print(f"{split_name} seed {seed}: macro-F1 {metrics['macro_f1']:.4f}  accuracy {metrics['accuracy']:.4f}")
         if smoke:
             break  # one run is enough to prove the code works
         # Append after every run, so a crash halfway keeps the finished runs.
         pd.DataFrame([row]).to_csv(out, mode="a", header=not out.exists(), index=False)
+        # One row per test post-chunk, for breakdowns by subreddit / label / date. No text, to keep it small.
+        pred_rows = test[PRED_COLS].assign(model=MODEL_NAME, split=split_name, seed=seed, pred=preds)
+        pred_rows.to_csv(pred_out, mode="a", header=not pred_out.exists(), index=False)
 
     if smoke:
         print("\nsmoke test passed (nothing written)")
