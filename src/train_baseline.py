@@ -2,11 +2,10 @@
 
 Split A = 10 grouped random splits (seeds in splits.RANDOM_SEEDS), reported as mean +/- std.
 Also scores the dataset's original train/test split as a side note.
-Writes results/baseline_runs.csv (one row per run), results/baseline_summary.csv and
-results/baseline_predictions.csv (TF-IDF + LR test predictions, one row per test row per run).
+Writes results/metrics/baseline_runs.csv (one row per run), results/metrics/baseline_summary.csv and
+results/metrics/baseline_predictions.csv (TF-IDF + LR test predictions, one row per test row per run).
 Run from the repo root:  python src/train_baseline.py
 """
-from pathlib import Path
 
 import pandas as pd
 from sklearn.dummy import DummyClassifier
@@ -15,10 +14,10 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import make_pipeline
 
 from evaluate import compute_metrics
+from paths import METRICS
 from splits import RANDOM_SEEDS, load_clean, split_random, split_random_grouped, split_temporal
 
 SEED = 42
-RESULTS = Path(__file__).resolve().parent.parent / "results"
 
 
 def make_models() -> dict:
@@ -60,7 +59,7 @@ def main() -> None:
                 pred_parts.append(test[["post_id", "subreddit", "social_timestamp", "label"]]
                                   .assign(model=model_name, split=split_name, seed=seed, pred=preds))
     runs = pd.DataFrame(rows)
-    pd.concat(pred_parts).to_csv(RESULTS / "baseline_predictions.csv", index=False)
+    pd.concat(pred_parts).to_csv(METRICS / "baseline_predictions.csv", index=False)
 
     # One line per (model, split). std is blank for splits with a single run.
     summary = (runs.groupby(["model", "split"], sort=False)
@@ -69,9 +68,9 @@ def main() -> None:
                         accuracy_mean=("accuracy", "mean"), accuracy_std=("accuracy", "std"))
                    .reset_index())
 
-    RESULTS.mkdir(exist_ok=True)
-    runs.to_csv(RESULTS / "baseline_runs.csv", index=False)
-    summary.to_csv(RESULTS / "baseline_summary.csv", index=False)
+    METRICS.mkdir(parents=True, exist_ok=True)
+    runs.to_csv(METRICS / "baseline_runs.csv", index=False)
+    summary.to_csv(METRICS / "baseline_summary.csv", index=False)
     print(summary.to_string(index=False, float_format="%.4f"))
     print("\nwrote baseline_runs.csv, baseline_summary.csv")
 

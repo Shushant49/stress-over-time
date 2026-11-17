@@ -2,8 +2,8 @@
 
 5 seeds per split. For Split A the seed picks both the random split and the training randomness;
 for Split B the split is fixed and the seed only changes training randomness.
-Writes results/transformer_runs.csv (one row per run, appended as each run finishes),
-results/transformer_predictions.csv (one row per test row per run) and results/transformer_summary.csv.
+Writes results/metrics/transformer_runs.csv (one row per run, appended as each run finishes),
+results/metrics/transformer_predictions.csv (one row per test row per run) and results/metrics/transformer_summary.csv.
 
 Run from the repo root:
   python src/train_transformer.py           # full run (GPU strongly recommended)
@@ -12,7 +12,6 @@ Run from the repo root:
 import argparse
 import math
 import tempfile
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -22,6 +21,7 @@ from transformers import (AutoModelForSequenceClassification, AutoTokenizer, Dat
                           Trainer, TrainingArguments, set_seed)
 
 from evaluate import compute_metrics
+from paths import METRICS
 from splits import RANDOM_SEEDS, load_clean, split_random_grouped, split_temporal
 
 MODEL_NAME = "distilroberta-base"
@@ -35,7 +35,6 @@ LR = 2e-5          # learning rate: how big each weight update is
 WEIGHT_DECAY = 0.01
 WARMUP_SHARE = 0.1  # first 10% of steps ramp the learning rate up from 0, which keeps early updates gentle
 
-RESULTS = Path(__file__).resolve().parent.parent / "results"
 PRED_COLS = ["post_id", "subreddit", "social_timestamp", "label"]
 
 
@@ -96,8 +95,8 @@ def main() -> None:
     lengths = [len(ids) for ids in tok(df["text"].tolist())["input_ids"]]
     print(f"posts longer than {MAX_LEN} tokens (will be truncated): {np.mean(np.array(lengths) > MAX_LEN):.1%}")
 
-    out = RESULTS / "transformer_runs.csv"
-    pred_out = RESULTS / "transformer_predictions.csv"
+    out = METRICS / "transformer_runs.csv"
+    pred_out = METRICS / "transformer_predictions.csv"
     if not smoke:
         for f in (out, pred_out):
             f.unlink(missing_ok=True)  # start fresh so old and new runs never mix
@@ -126,7 +125,7 @@ def main() -> None:
                         macro_f1_mean=("macro_f1", "mean"), macro_f1_std=("macro_f1", "std"),
                         accuracy_mean=("accuracy", "mean"), accuracy_std=("accuracy", "std"))
                    .reset_index())
-    summary.to_csv(RESULTS / "transformer_summary.csv", index=False)
+    summary.to_csv(METRICS / "transformer_summary.csv", index=False)
     print("\n" + summary.to_string(index=False, float_format="%.4f"))
 
 

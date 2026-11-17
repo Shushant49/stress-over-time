@@ -1,18 +1,17 @@
 """Why does Split B score higher? Break test predictions down by label, date period and subreddit.
 
-Uses results/{baseline,transformer}_predictions.csv. Split A is restricted to seeds 42-46 for both
+Uses results/metrics/{baseline,transformer}_predictions.csv. Split A is restricted to seeds 42-46 for both
 models so they are compared on the same splits. Scores are computed per run, then averaged over runs.
-Writes results/breakdown_<view>.csv for each view.
+Writes results/metrics/breakdown_<view>.csv for each view.
 Run from the repo root:  python src/analyze_predictions.py
 """
-from pathlib import Path
 
 import pandas as pd
 from sklearn.metrics import accuracy_score, f1_score, recall_score
 
+from paths import METRICS
 from splits import CUTOFF
 
-RESULTS = Path(__file__).resolve().parent.parent / "results"
 SEEDS = range(42, 47)
 FILES = {"tfidf_logreg": "baseline_predictions.csv", "distilroberta-base": "transformer_predictions.csv"}
 
@@ -24,7 +23,7 @@ PERIOD_NAMES = ["2017", "Jan-Aug 2018", "Sep-Nov 2018"]
 def load() -> pd.DataFrame:
     parts = []
     for model, fname in FILES.items():
-        path = RESULTS / fname
+        path = METRICS / fname
         if not path.exists():
             print(f"skip {model}: {fname} not found")
             continue
@@ -65,7 +64,7 @@ def main() -> None:
     views = {"overall": [], "period": ["period"], "subreddit": ["subreddit"]}
     for name, by in views.items():
         table = breakdown(df, by)
-        table.to_csv(RESULTS / f"breakdown_{name}.csv", index=False)
+        table.to_csv(METRICS / f"breakdown_{name}.csv", index=False)
         print(f"\n=== {name} ===")
         print(table.to_string(index=False))
 

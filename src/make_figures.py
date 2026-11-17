@@ -1,4 +1,4 @@
-"""Figures from data and results that already exist. Saves PNGs to results/.
+"""Figures from data and results that already exist. Saves PNGs to results/figures/.
 
   fig1_rows_per_month.png   - raw data: the Jan 2018 r/relationships spike
   fig2_stress_over_time.png - cleaned data: stress rate and rows per month, Split B cutoff marked
@@ -17,10 +17,10 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from analyze_predictions import load as load_predictions, per_run
+from paths import FIGURES, METRICS
 from splits import CUTOFF, load_clean
 
 ROOT = Path(__file__).resolve().parent.parent
-RESULTS = ROOT / "results"
 
 # Colors (validated categorical pair + neutral chart chrome).
 BLUE, ORANGE = "#2a78d6", "#eb6834"
@@ -77,7 +77,7 @@ def fig1_rows_per_month() -> None:
     ax.legend(loc="upper left")
     titles(fig, "One subreddit causes the January 2018 spike",
            "Raw Dreaddit rows per month. r/relationships appears only in Jan 2018, so it was dropped from both splits.")
-    fig.savefig(RESULTS / "fig1_rows_per_month.png", dpi=200)
+    fig.savefig(FIGURES / "fig1_rows_per_month.png", dpi=200)
     plt.close(fig)
 
 
@@ -115,7 +115,7 @@ def fig2_stress_over_time(clean: pd.DataFrame) -> None:
     titles(fig, f"Stress rate stays near {overall:.2f}; bigger swings in the smaller 2017 months",
            f"Cleaned data (train + test, r/relationships removed), {len(clean)} rows. "
            "Line marks the Split B cutoff, 2018-09-01.")
-    fig.savefig(RESULTS / "fig2_stress_over_time.png", dpi=200)
+    fig.savefig(FIGURES / "fig2_stress_over_time.png", dpi=200)
     plt.close(fig)
 
 
@@ -134,8 +134,8 @@ def dot_row(ax, values: pd.Series, y: float, color: str) -> None:
 
 
 def fig3_main_results() -> None:
-    base = pd.read_csv(RESULTS / "baseline_runs.csv")
-    trans = pd.read_csv(RESULTS / "transformer_runs.csv")
+    base = pd.read_csv(METRICS / "baseline_runs.csv")
+    trans = pd.read_csv(METRICS / "transformer_runs.csv")
     floor = base.query("model == 'majority' and split == 'A_random'")["macro_f1"].mean()
 
     def f1(df, model, split):
@@ -161,7 +161,7 @@ def fig3_main_results() -> None:
     titles(fig, "No drop on newer posts for either model",
            "Each dot is one run; black tick = mean. Split B tests on Sep–Nov 2018 after training on older posts. "
            f"Always-'stressed' floor: {floor:.2f}.")
-    fig.savefig(RESULTS / "fig3_main_results.png", dpi=200)
+    fig.savefig(FIGURES / "fig3_main_results.png", dpi=200)
     plt.close(fig)
 
 
@@ -195,12 +195,12 @@ def fig5_by_period() -> None:
     titles(fig, "On the same test months, training only on older posts scores about the same",
            "Compare the last two rows in each panel: same test months, only the training data differs. "
            "Wide spread = small groups.")
-    fig.savefig(RESULTS / "fig5_by_period.png", dpi=200)
+    fig.savefig(FIGURES / "fig5_by_period.png", dpi=200)
     plt.close(fig)
 
 
 def fig4_time_gap() -> None:
-    gap = pd.read_csv(RESULTS / "sanity_time_gap.csv")
+    gap = pd.read_csv(METRICS / "sanity_time_gap.csv")
     dates = dict(zip(gap["train_set"], gap["train_dates"]))  # e.g. "2018-01-26 to 2018-08-31"
     labels = {"old_2017": f"Old: {dates['old_2017']}\n(about 8-month gap)",
               "recent": f"Recent: {dates['recent']}\n(no gap)"}
@@ -218,23 +218,22 @@ def fig4_time_gap() -> None:
     ax.grid(axis="y", visible=False)
     n = int(gap["n_train"].iloc[0])
     diff = 100 * gap["macro_f1"].diff().abs().iloc[1]  # in points (1 point = 0.01 macro-F1)
-    runs = pd.read_csv(RESULTS / "baseline_runs.csv")
+    runs = pd.read_csv(METRICS / "baseline_runs.csv")
     spread = 100 * runs.query("model == 'tfidf_logreg' and split == 'A_random'")["macro_f1"].std()
     titles(fig, "Older training data did not score worse",
            f"Both training sets have {n} rows; one run each. The {diff:.1f}-point difference is smaller than "
            f"the {spread:.1f}-point std across the 10 random splits.")
-    fig.savefig(RESULTS / "fig4_time_gap.png", dpi=200)
+    fig.savefig(FIGURES / "fig4_time_gap.png", dpi=200)
     plt.close(fig)
 
 
 def main() -> None:
-    RESULTS.mkdir(exist_ok=True)
     fig1_rows_per_month()
     fig2_stress_over_time(load_clean())
     fig3_main_results()
     fig4_time_gap()
     fig5_by_period()
-    print("wrote", ", ".join(p.name for p in sorted(RESULTS.glob("fig*.png"))))
+    print("wrote", ", ".join(p.name for p in sorted(FIGURES.glob("fig*.png"))))
 
 
 if __name__ == "__main__":

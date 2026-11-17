@@ -13,7 +13,7 @@ how the model was trained (see [Why Split B scores higher](#why-split-b-scores-h
 The time window is short (under two years), so this is evidence of stability over months,
 not years.
 
-![Main results](results/fig3_main_results.png)
+![Main results](results/figures/fig3_main_results.png)
 
 ## Data
 
@@ -26,7 +26,7 @@ segments of a post share the same timestamp.
 about 20% of the data). Keeping it would make any date-based split also a topic split, so it is
 removed from **both** splits. That leaves 2,859 rows from 2,399 posts in 9 subreddits.
 
-![Rows per month](results/fig1_rows_per_month.png)
+![Rows per month](results/figures/fig1_rows_per_month.png)
 
 ## Method
 
@@ -57,8 +57,8 @@ runs. For the transformer, Split B is also run with 5 seeds, because training it
 | distilroberta-base | **0.821 ± 0.007** (5 runs) | **0.840 ± 0.005** (5 runs) | +1.9 points |
 
 Accuracy follows the same pattern (TF-IDF: 0.756 ± 0.017 vs 0.765; transformer: 0.824 ± 0.006 vs
-0.844). Per-run numbers are in [`results/baseline_runs.csv`](results/baseline_runs.csv) and
-[`results/transformer_runs.csv`](results/transformer_runs.csv).
+0.844). Per-run numbers are in [`results/metrics/baseline_runs.csv`](results/metrics/baseline_runs.csv) and
+[`results/metrics/transformer_runs.csv`](results/metrics/transformer_runs.csv).
 
 - The transformer beats TF-IDF by about 8 macro-F1 points on both splits.
 - For TF-IDF, Split B falls inside the normal run-to-run range of Split A.
@@ -84,20 +84,20 @@ transformer finds these months easier is not known. Split A has only about 112 S
 so those numbers are noisy (per-run std 0.032 for the transformer, 0.063 for TF-IDF). The result is
 "no sign of a cost", not "proven zero cost".
 
-![By period](results/fig5_by_period.png)
+![By period](results/figures/fig5_by_period.png)
 
 ### Additional checks
 
 - **A larger time gap.** Two training sets of exactly 1,100 rows each, tested on Split B's test set
   (TF-IDF, one run each): all of 2017 (about 8 months before the test period) scores **0.734**, and
   the most recent 1,100 rows before the cutoff (no gap) score **0.725**. Older data did not do
-  worse. ([fig4](results/fig4_time_gap.png))
+  worse. ([fig4](results/figures/fig4_time_gap.png))
 - **One random split is not enough.** The dataset's own Hugging Face train/test split gives TF-IDF
   a macro-F1 of 0.718, below all 10 of our random splits (0.721–0.770). A single split would have
   made Split B look misleadingly good, which is why Split A is reported over several seeds.
 - **Class balance.** The share of stressed rows is similar across the two sides: 0.538 (train) /
   0.558 (test) for Split B, vs. about 0.54 for Split A. It moves more month to month in 2017, when
-  months have fewer posts. ([fig2](results/fig2_stress_over_time.png))
+  months have fewer posts. ([fig2](results/figures/fig2_stress_over_time.png))
 
 ## Limitations
 
@@ -107,7 +107,7 @@ so those numbers are noisy (per-run std 0.032 for the transformer, 0.063 for TF-
   comparison. Small effects (one or two points) cannot be ruled out.
 - **GPU training is not exactly repeatable.** Rerunning the transformer with the same seed changed
   single-run macro-F1 by up to about 1.3 points. Means changed by less than 0.2 points. The CSVs in
-  `results/` are from the latest run.
+  `results/metrics/` are from the latest run.
 - **r/relationships was removed.** The results describe 9 subreddits, not the full dataset.
 - **Few seeds for the transformer** (5 per split). Standard deviations from 5 runs are rough.
 - **No hyperparameter tuning.** Both models use common default settings. Tuned models might behave
@@ -126,11 +126,11 @@ pip install -r requirements.txt
 
 python src/download_data.py       # Hugging Face -> data/raw/ (never edited)
 python src/prepare_data.py        # -> data/processed/dreaddit_clean.csv
-python src/train_baseline.py      # TF-IDF + LR, all splits -> results/baseline_*.csv
-python src/sanity_time_gap.py     # time-gap check -> results/sanity_time_gap.csv
-python src/train_transformer.py   # distilroberta, 10 runs -> results/transformer_*.csv (GPU recommended)
-python src/analyze_predictions.py # breakdowns -> results/breakdown_*.csv
-python src/make_figures.py        # -> results/fig*.png
+python src/train_baseline.py      # TF-IDF + LR, all splits -> results/metrics/baseline_*.csv
+python src/sanity_time_gap.py     # time-gap check -> results/metrics/sanity_time_gap.csv
+python src/train_transformer.py   # distilroberta, 10 runs -> results/metrics/transformer_*.csv (GPU recommended)
+python src/analyze_predictions.py # breakdowns -> results/metrics/breakdown_*.csv
+python src/make_figures.py        # -> results/figures/fig*.png
 ```
 
 Trained on an NVIDIA RTX 2060 (6 GB). Every script fixes its random seeds (42 and up).
@@ -141,7 +141,7 @@ Trained on an NVIDIA RTX 2060 (6 GB). Every script fixes its random seeds (42 an
 src/        download_data, prepare_data, splits, evaluate, train_baseline, train_transformer,
             sanity_time_gap, analyze_predictions, make_figures
 notebooks/  01_inspect_data.ipynb: data exploration, the r/relationships finding, choosing the cutoff
-results/    metrics (CSV) and figures (PNG)
+results/    metrics/ (CSV: per-run scores, summaries, predictions) and figures/ (PNG)
 data/       raw/ and processed/ (not in git; recreated by the scripts)
 ```
 

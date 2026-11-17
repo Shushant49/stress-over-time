@@ -3,19 +3,19 @@
 Same test set as Split B (Sep-Nov 2018). Two training sets of (nearly) equal size:
   old    = all of 2017                         -> ~8-month gap before test
   recent = the same number of rows just before the cutoff -> no gap
-Writes results/sanity_time_gap.csv.
+Writes results/metrics/sanity_time_gap.csv.
 Run from the repo root:  python src/sanity_time_gap.py
 """
-from pathlib import Path
 
 import pandas as pd
 
 from evaluate import compute_metrics
+from paths import METRICS
 from splits import load_clean, split_temporal
 from train_baseline import make_models
 
 OLD_END = pd.Timestamp("2018-01-01", tz="UTC")
-OUT = Path(__file__).resolve().parent.parent / "results" / "sanity_time_gap.csv"
+OUT = METRICS / "sanity_time_gap.csv"
 
 
 def date_range(part: pd.DataFrame) -> str:
