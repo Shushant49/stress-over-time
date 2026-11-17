@@ -6,6 +6,7 @@ Run from the repo root to print a summary:  python src/splits.py
 from pathlib import Path
 
 import pandas as pd
+from sklearn.model_selection import GroupShuffleSplit
 
 ROOT = Path(__file__).resolve().parent.parent
 CLEAN = ROOT / "data" / "processed" / "dreaddit_clean.csv"
@@ -29,6 +30,17 @@ def split_random(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Split A: the dataset's own train/test division (random over time, grouped by post)."""
     train = df[df["orig_split"] == "train"].reset_index(drop=True)
     test = df[df["orig_split"] == "test"].reset_index(drop=True)
+    _check_no_shared_posts(train, test)
+    return train, test
+
+
+def split_random_grouped(df: pd.DataFrame, seed: int, test_size: float = 0.2) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """A fresh random split for a given seed. All rows of a post (same post_id) go to the same side."""
+    gss = GroupShuffleSplit(n_splits=1, test_size=test_size, random_state=seed)
+    # test_size is a share of POSTS, not rows, so the row share can differ slightly from 0.2
+    train_idx, test_idx = next(gss.split(df, groups=df["post_id"]))
+    train = df.iloc[train_idx].reset_index(drop=True)
+    test = df.iloc[test_idx].reset_index(drop=True)
     _check_no_shared_posts(train, test)
     return train, test
 
