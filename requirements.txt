@@ -3,3 +3,9 @@ pandas
 scikit-learn
 matplotlib
 jupyter
+transformers
+accelerate
+# For GPU training, install PyTorch first from its CUDA index, e.g.:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu130
+# (plain "pip install torch" on Windows gives a CPU-only build)
+torch
