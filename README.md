@@ -36,7 +36,7 @@ are divided:
 | | Train | Test | How |
 |---|---|---|---|
 | **Split A** (random) | ~2,290 rows | ~570 rows | 20% of *posts* held out at random; all segments of a post stay on the same side. Repeated with seeds 42–51 (TF-IDF) or 42–46 (transformer). |
-| **Split B** (temporal) | 2,294 rows, Jan 2017 – Aug 2018 | 565 rows, Sep – Nov 2018 | Fixed cutoff at 2018-09-01 00:00 UTC (close to the 80% point). |
+| **Split B** (temporal) | 2,294 rows, Jan 2017 – Aug 2018 | 565 rows, Sep – Nov 2018 | Fixed cutoff at 2018-09-01 00:00 UTC (close to the 80% point). All segments of a post share one timestamp, so they always land on the same side. That prevents leakage: the model never sees part of a test post during training. |
 
 **Models**
 1. **TF-IDF + logistic regression**: word and two-word-phrase features (`min_df=2`, sublinear TF),
@@ -88,7 +88,7 @@ so those numbers are noisy (per-run std 0.032 for the transformer, 0.063 for TF-
 
 ### Additional checks
 
-- **A larger time gap.** Two training sets of exactly 1,100 rows each, tested on Split B's test set
+- **A larger time gap.** Two training sets of exactly 1,100 rows each (equal size, so the only difference is how old the training posts are), tested on Split B's test set
   (TF-IDF, one run each): all of 2017 (about 8 months before the test period) scores **0.734**, and
   the most recent 1,100 rows before the cutoff (no gap) score **0.725**. Older data did not do
   worse. ([fig4](results/figures/fig4_time_gap.png))
