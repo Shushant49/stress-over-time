@@ -15,6 +15,9 @@ CLEAN = ROOT / "data" / "processed" / "dreaddit_clean.csv"
 # Chosen near the 80% point; see notebooks/01_inspect_data.ipynb, step 4.
 CUTOFF = pd.Timestamp("2018-09-01", tz="UTC")
 
+# Split A is reported as mean +/- std over these grouped random splits (one fixed seed each).
+RANDOM_SEEDS = range(42, 52)
+
 
 def load_clean(path: Path = CLEAN) -> pd.DataFrame:
     return pd.read_csv(path)

@@ -1,6 +1,8 @@
 """TF-IDF + logistic regression baseline on Split A and Split B.
 
-Writes results/baseline_metrics.csv.
+Split A = 10 grouped random splits (seeds in splits.RANDOM_SEEDS), reported as mean +/- std.
+Also scores the dataset's original train/test split as a side note.
+Writes results/baseline_runs.csv (one row per run) and results/baseline_summary.csv.
 Run from the repo root:  python src/train_baseline.py
 """
 from pathlib import Path
@@ -12,10 +14,10 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import make_pipeline
 
 from evaluate import compute_metrics
-from splits import load_clean, split_random, split_temporal
+from splits import RANDOM_SEEDS, load_clean, split_random, split_random_grouped, split_temporal
 
 SEED = 42
-OUT = Path(__file__).resolve().parent.parent / "results" / "baseline_metrics.csv"
+RESULTS = Path(__file__).resolve().parent.parent / "results"
 
 
 def make_models() -> dict:
@@ -35,21 +37,37 @@ def make_models() -> dict:
     }
 
 
+def all_splits(df: pd.DataFrame):
+    """Yield (split_name, seed, train, test) for every run. seed is None where there is no randomness."""
+    for seed in RANDOM_SEEDS:
+        yield ("A_random", seed, *split_random_grouped(df, seed))
+    yield ("B_temporal", None, *split_temporal(df))
+    yield ("A_original", None, *split_random(df))  # side note: the dataset's own split
+
+
 def main() -> None:
     df = load_clean()
     rows = []
-    for split_name, (train, test) in [("A_random", split_random(df)), ("B_temporal", split_temporal(df))]:
-        for model_name, model in make_models().items():  # fresh, untrained models for each split
+    for split_name, seed, train, test in all_splits(df):
+        for model_name, model in make_models().items():  # fresh, untrained models for each run
             model.fit(train["text"], train["label"])
             metrics = compute_metrics(test["label"], model.predict(test["text"]))
-            rows.append({"model": model_name, "split": split_name,
+            rows.append({"model": model_name, "split": split_name, "seed": seed,
                          "n_train": len(train), "n_test": len(test), **metrics})
+    runs = pd.DataFrame(rows)
 
-    results = pd.DataFrame(rows)
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    results.to_csv(OUT, index=False)
-    print(results.to_string(index=False, float_format="%.4f"))
-    print(f"\nwrote {OUT.name}")
+    # One line per (model, split). std is blank for splits with a single run.
+    summary = (runs.groupby(["model", "split"], sort=False)
+                   .agg(n_runs=("macro_f1", "size"),
+                        macro_f1_mean=("macro_f1", "mean"), macro_f1_std=("macro_f1", "std"),
+                        accuracy_mean=("accuracy", "mean"), accuracy_std=("accuracy", "std"))
+                   .reset_index())
+
+    RESULTS.mkdir(exist_ok=True)
+    runs.to_csv(RESULTS / "baseline_runs.csv", index=False)
+    summary.to_csv(RESULTS / "baseline_summary.csv", index=False)
+    print(summary.to_string(index=False, float_format="%.4f"))
+    print("\nwrote baseline_runs.csv, baseline_summary.csv")
 
 
 if __name__ == "__main__":
