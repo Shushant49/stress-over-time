@@ -138,11 +138,24 @@ Trained on an NVIDIA RTX 2060 (6 GB). Every script fixes its random seeds (42 an
 ## Repository layout
 
 ```
-src/        download_data, prepare_data, splits, evaluate, train_baseline, train_transformer,
-            sanity_time_gap, analyze_predictions, make_figures
-notebooks/  01_inspect_data.ipynb: data exploration, the r/relationships finding, choosing the cutoff
-results/    metrics/ (CSV: per-run scores, summaries, predictions) and figures/ (PNG)
-data/       raw/ and processed/ (not in git; recreated by the scripts)
+src/
+  paths.py                output folders (results/metrics, results/figures), shared by all scripts
+  download_data.py        Hugging Face -> data/raw/
+  prepare_data.py         combine, drop r/relationships -> data/processed/
+  splits.py               Split A (grouped random, seeds 42-51) and Split B (cutoff 2018-09-01)
+  evaluate.py             macro-F1 and accuracy, shared by both models
+  train_baseline.py       TF-IDF + logistic regression (and majority-class floor)
+  train_transformer.py    distilroberta-base fine-tuning
+  sanity_time_gap.py      old (2017) vs recent training data, same test set
+  analyze_predictions.py  scores by label, period and subreddit
+  make_figures.py         all figures
+notebooks/
+  01_inspect_data.ipynb   data exploration, the r/relationships finding, choosing the cutoff
+results/
+  metrics/                CSVs: per-run scores (*_runs), summaries (*_summary),
+                          test predictions (*_predictions), breakdowns (breakdown_*), time-gap check
+  figures/                PNGs: fig1-fig5
+data/                     raw/ and processed/ (not in git; recreated by the scripts)
 ```
 
 ## References
