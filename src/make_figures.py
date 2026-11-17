@@ -2,8 +2,9 @@
 
   fig1_rows_per_month.png   - raw data: the Jan 2018 r/relationships spike
   fig2_stress_over_time.png - cleaned data: stress rate and rows per month, Split B cutoff marked
-  fig3_baseline_splits.png  - TF-IDF + LR macro-F1: 10 random splits vs Split B
+  fig3_main_results.png     - headline: macro-F1 per run, both models, Split A vs Split B
   fig4_time_gap.png         - check (c): old (2017) vs recent training data
+  fig5_by_period.png        - Split A test posts by period vs Split B (why B scores higher)
 
 Run from the repo root:  python src/make_figures.py
 """
@@ -15,6 +16,7 @@ matplotlib.use("Agg")  # draw to files only, no window
 import matplotlib.pyplot as plt
 import pandas as pd
 
+from analyze_predictions import load as load_predictions, per_run
 from splits import CUTOFF, load_clean
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -117,41 +119,83 @@ def fig2_stress_over_time(clean: pd.DataFrame) -> None:
     plt.close(fig)
 
 
-def fig3_baseline_splits() -> None:
-    all_runs = pd.read_csv(RESULTS / "baseline_runs.csv")
-    floor = all_runs.query("model == 'majority' and split == 'A_random'")["macro_f1"].mean()
-    runs = all_runs[all_runs["model"] == "tfidf_logreg"]
-    a = runs.loc[runs["split"] == "A_random", "macro_f1"]
-    b = runs.loc[runs["split"] == "B_temporal", "macro_f1"].iloc[0]
-    orig = runs.loc[runs["split"] == "A_original", "macro_f1"].iloc[0]
+def dot_row(ax, values: pd.Series, y: float, color: str) -> None:
+    """One row of a dot plot: a dot per run, plus a mean tick and label when there are several runs."""
+    v = values.sort_values().reset_index(drop=True)
+    # Fixed small up/down offsets so near-equal scores don't hide each other.
+    ys = [y + (0.09 if i % 2 else -0.09) for i in range(len(v))] if len(v) > 1 else [y]
+    ax.scatter(v, ys, s=55, color=color, edgecolor=SURFACE, linewidth=1.5, zorder=3)
+    if len(v) > 1:
+        ax.plot([v.mean()] * 2, [y - 0.25, y + 0.25], color=INK, lw=1.5, zorder=4)
+        label = f"{v.mean():.3f} ± {v.std():.3f}  ({len(v)} runs)"
+    else:
+        label = f"{v.iloc[0]:.3f}  (1 run)"
+    ax.text(v.max() + 0.004, y, label, va="center", fontsize=9, color=INK_2)
 
-    fig, ax = plt.subplots(figsize=(10, 3.8))
-    fig.subplots_adjust(top=0.80, left=0.25, right=0.97, bottom=0.16)
-    rows = {"Split A: 10 random splits": 2, "Split B: temporal": 1, "Original split (side note)": 0}
 
-    # Shaded band = mean +/- 1 std of the random splits: the "normal variation" range.
-    ax.axvspan(a.mean() - a.std(), a.mean() + a.std(), color=BLUE, alpha=0.08, lw=0)
-    # Fixed small up/down offsets so dots with near-equal scores don't hide each other.
-    offsets = [0.07 if i % 2 else -0.07 for i in range(len(a))]
-    a_sorted = a.sort_values()
-    ax.scatter(a_sorted, [2 + o for o in offsets], s=60, color=BLUE, edgecolor=SURFACE, linewidth=1.5, zorder=3)
-    ax.plot([a.mean()] * 2, [1.75, 2.25], color=INK, lw=1.5, zorder=4)
-    ax.text(a.mean(), 2.32, f"mean {a.mean():.3f} ± {a.std():.3f}", ha="center", fontsize=9, color=INK_2)
-    ax.scatter([b], [1], s=80, color=ORANGE, edgecolor=SURFACE, linewidth=1.5, zorder=3)
-    ax.text(b + 0.002, 1.16, f"{b:.3f}", fontsize=9, color=INK_2)
-    ax.scatter([orig], [0], s=60, color=MUTED, edgecolor=SURFACE, linewidth=1.5, zorder=3)
-    ax.text(orig + 0.002, 0.16, f"{orig:.3f}", fontsize=9, color=INK_2)
+def fig3_main_results() -> None:
+    base = pd.read_csv(RESULTS / "baseline_runs.csv")
+    trans = pd.read_csv(RESULTS / "transformer_runs.csv")
+    floor = base.query("model == 'majority' and split == 'A_random'")["macro_f1"].mean()
 
-    ax.set_yticks(list(rows.values()), list(rows.keys()))
+    def f1(df, model, split):
+        return df.query("model == @model and split == @split")["macro_f1"]
+
+    rows = [  # (label, scores, color, y) top to bottom
+        ("TF-IDF + LR  ·  Split A (random)", f1(base, "tfidf_logreg", "A_random"), BLUE, 4.6),
+        ("TF-IDF + LR  ·  Split B (temporal)", f1(base, "tfidf_logreg", "B_temporal"), ORANGE, 3.6),
+        ("distilroberta  ·  Split A (random)", f1(trans, "distilroberta-base", "A_random"), BLUE, 1.6),
+        ("distilroberta  ·  Split B (temporal)", f1(trans, "distilroberta-base", "B_temporal"), ORANGE, 0.6),
+    ]
+    fig, ax = plt.subplots(figsize=(10, 4.4))
+    fig.subplots_adjust(top=0.82, left=0.27, right=0.97, bottom=0.14)
+    for _, vals, color, y in rows:
+        dot_row(ax, vals, y, color)
+    ax.axhline(2.6, color=GRID, lw=1)  # separates the two models
+    ax.set_yticks([r[3] for r in rows], [r[0] for r in rows])
     ax.tick_params(axis="y", colors=INK_2, length=0)
-    ax.set_ylim(-0.6, 2.7)
-    ax.set_xlim(0.70, 0.79)
-    ax.set_xlabel("macro-F1 on the test set (TF-IDF + logistic regression)")
+    ax.set_ylim(0, 5.2)
+    ax.set_xlim(0.70, 0.90)
+    ax.set_xlabel("macro-F1 on the test set")
     ax.grid(axis="y", visible=False)
-    titles(fig, "Split B scores within the normal range of random splits",
-           "Each dot is one train/test run. Shaded band = random-split mean ± 1 std. "
-           f"Always-'stressed' floor scores {floor:.2f} (not shown).")
-    fig.savefig(RESULTS / "fig3_baseline_splits.png", dpi=200)
+    titles(fig, "No drop on newer posts for either model",
+           "Each dot is one run; black tick = mean. Split B tests on Sep–Nov 2018 after training on older posts. "
+           f"Always-'stressed' floor: {floor:.2f}.")
+    fig.savefig(RESULTS / "fig3_main_results.png", dpi=200)
+    plt.close(fig)
+
+
+def fig5_by_period() -> None:
+    preds = load_predictions()
+    runs = per_run(preds, ["period"])
+    groups = [  # (label, split, period, color)
+        ("Split A test posts from 2017", "A_random", "2017", BLUE),
+        ("Split A test posts from Jan–Aug 2018", "A_random", "Jan-Aug 2018", BLUE),
+        ("Split A test posts from Sep–Nov 2018", "A_random", "Sep-Nov 2018", BLUE),
+        ("Split B (all Sep–Nov 2018)", "B_temporal", "Sep-Nov 2018", ORANGE),
+    ]
+    models = [("distilroberta-base", "distilroberta-base"), ("tfidf_logreg", "TF-IDF + logistic regression")]
+
+    fig, axes = plt.subplots(2, 1, figsize=(10, 6.4), sharex=True, gridspec_kw={"hspace": 0.35})
+    fig.subplots_adjust(top=0.86, left=0.30, right=0.97, bottom=0.09)
+    for ax, (model, model_label) in zip(axes, models):
+        for i, (label, split, period, color) in enumerate(groups):
+            sel = runs.query("model == @model and split == @split and period == @period")["macro_f1"]
+            dot_row(ax, sel, len(groups) - 1 - i, color)
+        n_sep = runs.query("model == @model and split == 'A_random' and period == 'Sep-Nov 2018'")["n"].mean()
+        ax.set_yticks(range(len(groups) - 1, -1, -1), [g[0] for g in groups])
+        ax.tick_params(axis="y", colors=INK_2, length=0)
+        ax.set_ylim(-0.7, len(groups) - 0.3)
+        ax.grid(axis="y", visible=False)
+        ax.set_title(f"{model_label}   (Split A has ~{n_sep:.0f} Sep–Nov rows per run, so those dots are noisy)",
+                     loc="left", fontsize=9.5, color=INK_2)
+    lo = runs["macro_f1"].min()
+    axes[-1].set_xlim(min(0.66, lo - 0.02), 0.96)  # never cut off a run
+    axes[-1].set_xlabel("macro-F1 (seeds 42–46)")
+    titles(fig, "On the same test months, training only on older posts scores about the same",
+           "Compare the last two rows in each panel: same test months, only the training data differs. "
+           "Wide spread = small groups.")
+    fig.savefig(RESULTS / "fig5_by_period.png", dpi=200)
     plt.close(fig)
 
 
@@ -187,8 +231,9 @@ def main() -> None:
     RESULTS.mkdir(exist_ok=True)
     fig1_rows_per_month()
     fig2_stress_over_time(load_clean())
-    fig3_baseline_splits()
+    fig3_main_results()
     fig4_time_gap()
+    fig5_by_period()
     print("wrote", ", ".join(p.name for p in sorted(RESULTS.glob("fig*.png"))))
 
 

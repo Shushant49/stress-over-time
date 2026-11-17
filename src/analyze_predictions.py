@@ -48,12 +48,16 @@ def scores(g: pd.DataFrame) -> pd.Series:
                       "recall_not_stressed": rec0, "recall_stressed": rec1})
 
 
+def per_run(df: pd.DataFrame, by: list[str]) -> pd.DataFrame:
+    """One row per (model, split, run, group) with that run's scores."""
+    return (df.groupby(["model", "split", "seed", *by], observed=True)[["label", "pred"]]
+              .apply(scores).reset_index())
+
+
 def breakdown(df: pd.DataFrame, by: list[str]) -> pd.DataFrame:
     # Score each run separately, then average over runs (n = rows per run).
-    per_run = (df.groupby(["model", "split", "seed", *by], observed=True)[["label", "pred"]]
-                 .apply(scores).reset_index())
-    return per_run.groupby(["model", "split", *by], observed=True).mean(numeric_only=True) \
-                  .drop(columns="seed").round(4).reset_index()
+    return per_run(df, by).groupby(["model", "split", *by], observed=True).mean(numeric_only=True) \
+                          .drop(columns="seed").round(4).reset_index()
 
 
 def main() -> None:
